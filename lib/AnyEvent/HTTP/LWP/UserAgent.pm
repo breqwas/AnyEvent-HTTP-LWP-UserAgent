@@ -156,6 +156,7 @@ sub simple_request_async {
             if($out_req->code < 200 || 300 <= $out_req->code) { # not success
                 $content .= $d;
             } else {
+				local $\ = '';
                 print $fh $d or $cv->croak("Can't write to '$arg': $!");
             }
             return 1;
@@ -305,6 +306,15 @@ sub delete_async {
     return $self->request_async( HTTP::Request::Common::DELETE( @parameters ), @suff );
 }
 
+sub mirror_async {
+	my ($self, $url, $file) = @_;
+
+	my $request = HTTP::Request->new('GET', $url);
+
+	unlink $file if -e $file;
+	return $self->request_async($request, $file);
+}
+
 sub get {
     return shift->get_async(@_)->recv;
 }
@@ -323,6 +333,65 @@ sub put {
 
 sub delete {
     return shift->delete_async(@_)->recv;
+}
+
+sub mirror {
+    my($self, $url, $file) = @_;
+	# yup, that's a copypaste from LWP::UserAgent as well
+
+    my $request = HTTP::Request->new('GET', $url);
+
+    # If the file exists, add a cache-related header
+    if ( -e $file ) {
+        my ($mtime) = ( stat($file) )[9];
+        if ($mtime) {
+            $request->header( 'If-Modified-Since' => HTTP::Date::time2str($mtime) );
+        }
+    }
+    my $tmpfile = "$file-$$";
+
+    my $response = $self->request_async($request, $tmpfile)->recv;
+    if ( $response->header('X-Died') ) {
+		die $response->header('X-Died');
+    }
+
+    # Only fetching a fresh copy of the would be considered success.
+    # If the file was not modified, "304" would returned, which
+    # is considered by HTTP::Status to be a "redirect", /not/ "success"
+    if ( $response->is_success ) {
+        my @stat        = stat($tmpfile) or die "Could not stat tmpfile '$tmpfile': $!";
+        my $file_length = $stat[7];
+        my ($content_length) = $response->header('Content-length');
+
+        if ( defined $content_length and $file_length < $content_length ) {
+            unlink($tmpfile);
+            die "Transfer truncated: " . "only $file_length out of $content_length bytes received\n";
+        } elsif ( defined $content_length and $file_length > $content_length ) {
+            unlink($tmpfile);
+            die "Content-length mismatch: " . "expected $content_length bytes, got $file_length\n";
+        }
+        # The file was the expected length.
+        else {
+            # Replace the stale file with a fresh copy
+            if ( -e $file ) {
+                # Some dosish systems fail to rename if the target exists
+                chmod 0777, $file;
+                unlink $file;
+            }
+            rename( $tmpfile, $file )
+			or die "Cannot rename '$tmpfile' to '$file': $!\n";
+
+            # make sure the file has the same last modification time
+            if ( my $lm = $response->last_modified ) {
+                utime $lm, $lm, $file;
+            }
+        }
+    }
+    # The local copy is fresh enough, so just delete the temp file
+    else {
+		unlink($tmpfile);
+    }
+    return $response;
 }
 
 sub lwp_request2anyevent_request {
@@ -552,4 +621,3 @@ L<LWP::Protocol::Coro::http>
 Yasutaka Atarashi
 
 =cut
-
