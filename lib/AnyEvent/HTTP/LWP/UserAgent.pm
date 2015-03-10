@@ -156,7 +156,7 @@ sub simple_request_async {
             if($out_req->code < 200 || 300 <= $out_req->code) { # not success
                 $content .= $d;
             } else {
-				local $\ = '';
+                local $\ = '';
                 print $fh $d or $cv->croak("Can't write to '$arg': $!");
             }
             return 1;
@@ -337,13 +337,13 @@ sub lwp_request2anyevent_request {
     }
 
     my $out_headers = {};
-	my $scan_sub = sub {
+    my $scan_sub = sub {
         my ($header, $value) = @_;
         $out_headers->{$header} = $value;
     };
 
-	$self->default_headers()->scan($scan_sub);
-	$in_req->headers()->scan($scan_sub);
+    $self->default_headers()->scan($scan_sub);
+    $in_req->headers()->scan($scan_sub);
 
     # if we will use some code like
     #    local $AnyEvent::HTTP::USERAGENT = $useragent;
