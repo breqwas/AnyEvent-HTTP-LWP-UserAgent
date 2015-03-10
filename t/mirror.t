@@ -14,8 +14,8 @@ BEGIN {
 
     sub print_banner { }
 
-	my $bigdata = join(", ", 0 .. 10_000);
-	our $content = <<__HTML__;
+    my $bigdata = join(", ", 0 .. 10_000);
+    our $content = <<__HTML__;
 <html>
   <head>
     <title>Test Web Page</title>
@@ -28,7 +28,7 @@ BEGIN {
 </html>
 __HTML__
 
-	sub handle_request {
+    sub handle_request {
         my ($self, $cgi) = @_;
 
         print "HTTP/1.0 200 OK\r\n";
@@ -51,36 +51,36 @@ Test::TCP::test_tcp(
     client => sub {
         my $port = shift;
         {
-			# basic
-			my $fname = "/tmp/mirror_basic_$$";
+            # basic
+            my $fname = "/tmp/mirror_basic_$$";
             my $ua = AnyEvent::HTTP::LWP::UserAgent->new();
             my $res = $ua->mirror("http://localhost:$port/", $fname);
             ok $res->is_success, 'basic: is_success';
             is $res->content, '', 'basic: empty content';
             is read_file($fname), $HTTP::Server::Simple::Test::content, 'basic: valid file';
-			unlink $fname;
-		}
+            unlink $fname;
+        }
         {
-			# perl -c
-			local $\ = "\n";
-			my $fname = "/tmp/mirror_newlines_$$";
+            # perl -l
+            local $\ = "\n";
+            my $fname = "/tmp/mirror_newlines_$$";
             my $ua = AnyEvent::HTTP::LWP::UserAgent->new();
             my $res = $ua->mirror("http://localhost:$port/", $fname);
-            ok $res->is_success, 'perl -c: is_success';
-            is read_file($fname), $HTTP::Server::Simple::Test::content, 'perl -c: valid file';
-			unlink $fname;
-		}
+            ok $res->is_success, 'perl -l: is_success';
+            is read_file($fname), $HTTP::Server::Simple::Test::content, 'perl -l: valid file';
+            unlink $fname;
+        }
         {
-			# headers
-			my $fname = "/tmp/mirror_defheaders_$$";
+            # headers
+            my $fname = "/tmp/mirror_defheaders_$$";
             my $ua = AnyEvent::HTTP::LWP::UserAgent->new();
-			$ua->default_header("X-Throw" => "1");
+            $ua->default_header("X-Throw" => "1");
             my $res = $ua->mirror("http://localhost:$port/", $fname);
             ok $res->is_success, 'headers: is_success';
             is read_file($fname), $HTTP::Server::Simple::Test::content, 'headers: valid file';
-			ok $res->header("X-Gotcha"), "headers: default header was passed and processed";
-			unlink $fname;
-		}
+            ok $res->header("X-Gotcha"), "headers: default header was passed and processed";
+            unlink $fname;
+        }
 
     },
 );
